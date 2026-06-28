@@ -184,6 +184,11 @@ impl PE64 {
                 self.iat_names
                     .insert(real_addr, format!("{}!{}", import_dll, api_name));
             } else {
+                // Unresolved: the IAT slot keeps its on-disk value (the
+                // name-entry address). Record it -> name so a call through the
+                // slot is still identified and emulated by name.
+                self.iat_names
+                    .insert(func_name_addr_or_ordinal, format!("{}!{}", import_dll, api_name));
                 unresolved += 1;
                 log::trace!("unresolved import {}!{} (IAT rva 0x{:x})", import_dll, api_name, rva);
             }
@@ -254,6 +259,10 @@ impl PE64 {
                 self.iat_names
                     .insert(real_addr, format!("{}!{}", import_dll, func_name));
             } else {
+                // Unresolved: the slot keeps its on-disk thunk value; record it
+                // -> name so a call through the slot is still named/emulated.
+                self.iat_names
+                    .insert(thunk_data, format!("{}!{}", import_dll, func_name));
                 unresolved += 1;
                 log::trace!("unresolved import {}!{} (IAT rva 0x{:x})", import_dll, func_name, rva);
             }
