@@ -1,4 +1,5 @@
 # rs-header
+[![Rust CI](https://github.com/mwemuorg/rs-header/actions/workflows/ci.yaml/badge.svg)](https://github.com/mwemuorg/rs-header/actions/workflows/ci.yaml)
 
 Generic executable-header parsers and loaders, extracted from
 [mwemu](https://github.com/sha0coder/mwemu). Two front-ends share one design:
