@@ -1,5 +1,3 @@
-use std::fs::File;
-use std::io::Read;
 
 use crate::pe::readers::{
     read_c_string, read_c_string_with_max, read_u32_le as read_u32_le_shared,
@@ -19,30 +17,10 @@ macro_rules! read_u32_le {
 }
 
 impl PE32 {
-    pub fn is_pe32(filename: &str) -> bool {
-        let mut fd = match File::open(filename) {
-            Ok(file) => file,
-            Err(_) => return false,
-        };
-        let file_size = match fd.metadata() {
-            Ok(metadata) => metadata.len(),
-            Err(_) => return false,
-        };
-        if file_size < ImageDosHeader::size() as u64 {
-            return false;
-        }
-        let mut raw = vec![0u8; ImageDosHeader::size()];
-        if fd.read_exact(&mut raw).is_err() {
-            return false;
-        }
-        let dos = ImageDosHeader::load(&raw, 0);
-        if dos.e_magic != 0x5a4d {
-            return false;
-        }
-        if dos.e_lfanew >= file_size as u32 {
-            return false;
-        }
-        true
+    /// True if `raw` is a 32-bit (x86) PE image, by its COFF `Machine` field.
+    pub fn is_pe32(raw: &[u8]) -> bool {
+        crate::pe::shared::pe_machine_type(raw)
+            == Some(crate::pe::shared::IMAGE_FILE_MACHINE_I386)
     }
 
     pub fn read_string(raw: &[u8], off: usize) -> String {

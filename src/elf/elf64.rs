@@ -59,6 +59,10 @@ macro_rules! write_u64_le {
 
 pub const EI_NIDENT: usize = 16;
 pub const ELFCLASS64: u8 = 0x02;
+// `e_machine` (architecture) values, mirroring PE's IMAGE_FILE_MACHINE_*.
+pub const EM_386: u16 = 0x03;
+pub const EM_X86_64: u16 = 0x3E;
+pub const EM_AARCH64: u16 = 0xB7;
 pub const DT_NEEDED: u64 = 1;
 pub const DT_PLTRELSZ: u64 = 2;
 pub const DT_NULL: u64 = 0;
@@ -963,27 +967,35 @@ impl Elf64 {
         None
     }
 
+    /// `true` if `raw` is any ELF image (`0x7f 'E' 'L' 'F'` magic), regardless
+    /// of class or architecture.
+    pub fn is_elf(raw: &[u8]) -> bool {
+        raw.len() >= 4 && raw[0] == 0x7f && raw[1] == b'E' && raw[2] == b'L' && raw[3] == b'F'
+    }
+
+    /// `true` if `raw` is a 64-bit ELF image (`ELFCLASS64`), regardless of
+    /// architecture.
+    pub fn is_elf64(raw: &[u8]) -> bool {
+        Self::is_elf(raw) && raw.len() > 4 && raw[4] == ELFCLASS64
+    }
+
+    /// The `e_machine` (architecture) field of an ELF image, or `None` if `raw`
+    /// is not an ELF. The value is one of the `EM_*` constants. Byte-based,
+    /// mirroring PE's `pe_machine_type`. Works for both ELF32 and ELF64 (the
+    /// field lives at the same offset).
+    pub fn elf_machine(raw: &[u8]) -> Option<u16> {
+        if !Self::is_elf(raw) || raw.len() < 20 {
+            return None;
+        }
+        Some(u16::from_le_bytes([raw[18], raw[19]]))
+    }
+
     pub fn is_elf64_x64(raw: &[u8]) -> bool {
-        Self::is_elf64_with_machine(raw, 0x3E) // EM_X86_64
+        Self::is_elf64(raw) && Self::elf_machine(raw) == Some(EM_X86_64)
     }
 
     pub fn is_elf64_aarch64(raw: &[u8]) -> bool {
-        Self::is_elf64_with_machine(raw, 0xB7) // EM_AARCH64
-    }
-
-    /// Identify an ELF64 image of a given `e_machine` from its leading bytes.
-    /// Needs at least the ident (5 bytes) and `e_machine` at offset 18.
-    fn is_elf64_with_machine(raw: &[u8], expected_machine: u16) -> bool {
-        if raw.len() < 20 {
-            return false;
-        }
-
-        if raw[0] != 0x7f || raw[1] != b'E' || raw[2] != b'L' || raw[3] != b'F' || raw[4] != ELFCLASS64 {
-            return false;
-        }
-
-        let e_machine = u16::from_le_bytes([raw[18], raw[19]]);
-        e_machine == expected_machine
+        Self::is_elf64(raw) && Self::elf_machine(raw) == Some(EM_AARCH64)
     }
 }
 

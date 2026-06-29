@@ -1,5 +1,3 @@
-use std::fs::File;
-use std::io::Read;
 
 use crate::pe::readers::{read_c_string, read_u64_le as read_u64_le_shared};
 use super::{
@@ -17,19 +15,14 @@ macro_rules! read_u64_le {
 }
 
 impl PE64 {
-    pub fn is_pe64(filename: &str) -> bool {
-        let mut fd = File::open(filename).expect("file not found");
-        let mut raw = vec![0u8; ImageDosHeader::size()];
-        fd.read_exact(&mut raw).expect("couldnt read the file");
-        let dos = ImageDosHeader::load(&raw, 0);
-
-        if dos.e_magic != 0x5a4d {
-            return false;
-        }
-        if dos.e_lfanew >= fd.metadata().unwrap().len() as u32 {
-            return false;
-        }
-        true
+    /// True if `raw` is a 64-bit PE image (x86-64 or ARM64), by its COFF
+    /// `Machine` field.
+    pub fn is_pe64(raw: &[u8]) -> bool {
+        matches!(
+            crate::pe::shared::pe_machine_type(raw),
+            Some(crate::pe::shared::IMAGE_FILE_MACHINE_AMD64)
+                | Some(crate::pe::shared::IMAGE_FILE_MACHINE_ARM64)
+        )
     }
 
     /// Parse PE metadata from `raw`. Does **not** retain `raw`: the struct keeps

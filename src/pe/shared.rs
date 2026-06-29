@@ -538,52 +538,26 @@ impl Section {
     }
 }
 
-/// Read the COFF Machine field from a PE file without fully parsing it.
-/// Returns `None` if the file is not a valid PE (no MZ signature, bad e_lfanew, etc.).
-pub fn pe_machine_type(filename: &str) -> Option<u16> {
-    use std::fs::File;
-    use std::io::Read as _;
-
-    let mut fd = File::open(filename).ok()?;
-    let file_size = fd.metadata().ok()?.len();
-
-    if file_size < ImageDosHeader::size() as u64 {
+/// Read the COFF `Machine` field (architecture) from a PE image's bytes, or
+/// `None` if `raw` is not a PE. The value is one of the `IMAGE_FILE_MACHINE_*`
+/// constants. Byte-based, mirroring ELF's `Elf64::elf_machine`.
+pub fn pe_machine_type(raw: &[u8]) -> Option<u16> {
+    if raw.len() < ImageDosHeader::size() {
         return None;
     }
-
-    let mut buf = vec![0u8; ImageDosHeader::size()];
-    fd.read_exact(&mut buf).ok()?;
-    let dos = ImageDosHeader::load(&buf, 0);
-
+    let dos = ImageDosHeader::load(raw, 0);
     if dos.e_magic != IMAGE_DOS_SIGNATURE {
         return None;
     }
 
-    // e_lfanew points to the PE signature (4 bytes) followed by the COFF file header.
-    // The Machine field is the first 2 bytes of the COFF file header, i.e. at e_lfanew + 4.
-    let machine_offset = dos.e_lfanew as u64 + 4; // skip "PE\0\0"
-    if machine_offset + 2 > file_size {
+    // e_lfanew points to the PE signature (4 bytes) followed by the COFF file
+    // header; the Machine field is its first 2 bytes (at e_lfanew + 4).
+    let nt_off = dos.e_lfanew as usize;
+    if nt_off + 6 > raw.len() {
         return None;
     }
-
-    // Read from e_lfanew to get signature + first 2 bytes of COFF header.
-    let need = (dos.e_lfanew as usize) + 4 + 2; // signature(4) + machine(2)
-    if need > file_size as usize {
+    if read_u32_le_shared(raw, nt_off) != IMAGE_NT_SIGNATURE {
         return None;
     }
-
-    // Re-read enough of the file (we already have the DOS header portion).
-    let mut full_buf = vec![0u8; need];
-    // Rewind by re-opening (simple and safe).
-    let mut fd2 = File::open(filename).ok()?;
-    fd2.read_exact(&mut full_buf).ok()?;
-
-    // Verify PE signature.
-    let sig = read_u32_le_shared(&full_buf, dos.e_lfanew as usize);
-    if sig != IMAGE_NT_SIGNATURE {
-        return None;
-    }
-
-    let machine = read_u16_le_shared(&full_buf, dos.e_lfanew as usize + 4);
-    Some(machine)
+    Some(read_u16_le_shared(raw, nt_off + 4))
 }

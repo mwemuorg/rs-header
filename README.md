@@ -154,13 +154,27 @@ ELF32 is the same via `rs_header::elf::elf32::Elf32` (`elf.load(&mut backend)`).
 
 ## Format detection
 
+All detectors are **byte-based** and symmetric across PE and ELF: a
+`*_machine` function returns the architecture field, plus convenience
+predicates.
+
 ```rust
-use rs_header::pe::{pe_machine_type, IMAGE_FILE_MACHINE_AMD64};
+use rs_header::pe::{pe_machine_type, IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_I386};
+use rs_header::pe::pe64::PE64;
+use rs_header::elf::{EM_X86_64};
 use rs_header::elf::elf64::Elf64;
 
 let raw = std::fs::read(path)?;
-if Elf64::is_elf64_x64(&raw) { /* ELF64 x86-64 */ }
-if pe_machine_type(path) == Some(IMAGE_FILE_MACHINE_AMD64) { /* PE64 x86-64 */ }
+
+// architecture field (None if not that format):
+let pe_arch  = pe_machine_type(&raw);     // Some(IMAGE_FILE_MACHINE_*) | None
+let elf_arch = Elf64::elf_machine(&raw);  // Some(EM_*) | None
+
+// convenience predicates:
+PE64::is_pe64(&raw);              // 64-bit PE (x86-64 or ARM64)
+Elf64::is_elf64(&raw);            // any 64-bit ELF
+Elf64::is_elf64_x64(&raw);       // ELF64 + EM_X86_64
+if pe_machine_type(&raw) == Some(IMAGE_FILE_MACHINE_AMD64) { /* PE64 x86-64 */ }
 ```
 
 `libmwemu` implements `PeLoader for Emu` and `ElfLoader for Maps` and drives
