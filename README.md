@@ -2,7 +2,7 @@
 [![Rust CI](https://github.com/mwemuorg/rs-header/actions/workflows/ci.yaml/badge.svg)](https://github.com/mwemuorg/rs-header/actions/workflows/ci.yaml)
 
 Generic executable-header parsers and loaders, extracted from
-[mwemu](https://github.com/sha0coder/mwemu). Two front-ends share one design:
+[mwemu](https://github.com/mwemuorg/mwemu). Two front-ends share one design:
 parsing produces plain data structs, and binding into guest memory happens
 through a small backend trait — never a concrete emulator — so any project can
 map and relocate a binary into its own address space.
